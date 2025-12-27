@@ -16,6 +16,7 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [options, setOptions] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,12 +33,14 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack }) => {
   const handleGenerate = async () => {
     if (!desc.trim() && !referenceImg) return;
     setIsGenerating(true);
+    setError(null);
     try {
       const images = await generateCharacterOptions(desc, style, referenceImg);
       setOptions(images);
       setSelectedImage(images[0]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || "角色生成遇到问题，请检查描述词是否包含敏感内容。");
     } finally {
       setIsGenerating(false);
     }
@@ -122,16 +125,43 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack }) => {
             <button
               onClick={handleGenerate}
               disabled={(!desc.trim() && !referenceImg) || isGenerating}
-              className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold shadow-lg hover:bg-orange-600 transition-all flex items-center justify-center gap-2"
+              className={`w-full py-4 rounded-2xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${
+                isGenerating ? 'bg-orange-300 cursor-not-allowed' : 'bg-orange-500 text-white hover:bg-orange-600'
+              }`}
             >
-              {isGenerating ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-wand-sparkles"></i>}
-              生成角色方案
+              {isGenerating ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  设计中...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-wand-sparkles"></i>
+                  生成角色方案
+                </>
+              )}
             </button>
           </div>
         </div>
 
         <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-xl border border-orange-50 min-h-[400px] flex flex-col items-center justify-center text-center">
-          {options.length > 0 ? (
+          {error ? (
+            <div className="space-y-6 animate-in shake duration-500">
+              <div className="w-20 h-20 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i className="fas fa-exclamation-circle"></i>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-red-600">生成出错了</h3>
+                <p className="text-gray-500 max-w-sm mx-auto text-sm">{error}</p>
+                <button 
+                  onClick={handleGenerate}
+                  className="mt-4 px-6 py-2 bg-gray-100 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-200 transition-all"
+                >
+                  再试一次
+                </button>
+              </div>
+            </div>
+          ) : options.length > 0 ? (
             <div className="w-full space-y-8 animate-in zoom-in-95 duration-300">
               <div className="grid grid-cols-2 gap-4">
                 {options.map((img, i) => (
@@ -161,15 +191,27 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack }) => {
           ) : (
             <div className="space-y-6">
               <div className="w-32 h-32 bg-orange-50 rounded-full flex items-center justify-center mx-auto text-orange-200 text-5xl relative">
-                <i className="fas fa-user-plus"></i>
-                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center text-orange-500 shadow-lg border border-orange-50">
-                  <i className="fas fa-sparkles text-sm"></i>
-                </div>
+                {isGenerating ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                     <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <>
+                    <i className="fas fa-user-plus"></i>
+                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center text-orange-500 shadow-lg border border-orange-50">
+                      <i className="fas fa-sparkles text-sm"></i>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-gray-800 font-header">塑造你的英雄</h3>
+                <h3 className="text-2xl font-bold text-gray-800 font-header">
+                  {isGenerating ? "正在魔法创作中..." : "塑造你的英雄"}
+                </h3>
                 <p className="text-gray-500 max-w-xs mx-auto text-sm leading-relaxed">
-                  描述你的主角，或上传一张参考图。我们将为你生成多个角色方案供你挑选。
+                  {isGenerating 
+                    ? "请稍候，我们正在为您绘制多个角色方案。通常需要 10-20 秒。" 
+                    : "描述你的主角，或上传一张参考图。我们将为你生成多个角色方案供你挑选。"}
                 </p>
               </div>
             </div>
@@ -190,9 +232,9 @@ const CharacterStudio: React.FC<Props> = ({ project, onNext, onBack }) => {
             visualStyle: style, 
             currentStep: 'director' 
           })}
-          disabled={!selectedImage}
+          disabled={!selectedImage || isGenerating}
           className={`px-12 py-4 rounded-2xl font-header font-bold text-xl shadow-lg transition-all flex items-center gap-3 ${
-            !selectedImage ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-orange-500 text-white hover:bg-orange-600 hover:-translate-y-1'
+            !selectedImage || isGenerating ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-orange-500 text-white hover:bg-orange-600 hover:-translate-y-1'
           }`}
         >
           确定形象并继续
