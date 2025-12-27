@@ -49,6 +49,27 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack }) => {
     }
   };
 
+  const handleGenerateVideo = async () => {
+    setIsVideoGenerating(true);
+    setVideoProgressMsg("正在构思电影脚本...");
+    try {
+      const summary = pages.map(p => p.text).join(". ");
+      const url = await generateStoryVideo(project.title, summary, (msg) => {
+        setVideoProgressMsg(msg);
+      });
+      setVideoUrl(url);
+    } catch (err: any) {
+      console.error(err);
+      // Reset key selection state if the request fails due to missing resources
+      if (err.message?.includes("Requested entity was not found") && (window as any).aistudio) {
+        await (window as any).aistudio.openSelectKey();
+      }
+      alert("视频生成失败，请稍后重试。");
+    } finally {
+      setIsVideoGenerating(false);
+    }
+  };
+
   const addPage = async () => {
     setIsAddingPage(true);
     try {
@@ -89,6 +110,7 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack }) => {
       return;
     }
     const filtered = pages.filter((_, i) => i !== idx);
+    // Correcting the typo from 'rennumbered' to 'renumbered' below
     const renumbered = filtered.map((p, i) => ({ ...p, pageNumber: i + 1 }));
     setPages(renumbered);
   };
@@ -204,6 +226,14 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack }) => {
           </button>
           
           <div className="flex gap-2">
+            <button 
+              onClick={handleGenerateVideo} 
+              disabled={isProcessing || isVideoGenerating}
+              className="px-6 py-3 bg-indigo-500 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-600 transition-all shadow-md disabled:bg-gray-300"
+            >
+              {isVideoGenerating ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-film"></i>}
+              生成视频预告
+            </button>
              <button 
               onClick={() => generateAll(false)} 
               disabled={isProcessing} 
@@ -242,7 +272,27 @@ const DirectorMode: React.FC<Props> = ({ project, onNext, onBack }) => {
           <div className="bg-white w-full max-w-lg rounded-[40px] p-12 text-center space-y-8 animate-in zoom-in-95">
              <div className="w-20 h-20 border-8 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
              <p className="text-indigo-600 font-bold text-xl">{videoProgressMsg}</p>
+             <p className="text-gray-400 text-xs">视频生成可能需要几分钟，请不要关闭页面...</p>
           </div>
+        </div>
+      )}
+
+      {videoUrl && (
+        <div className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-10 animate-in fade-in">
+           <div className="w-full max-w-4xl space-y-6">
+             <div className="flex justify-between items-center text-white">
+               <div>
+                 <h3 className="text-2xl font-bold font-header">🎬 梦想预告片</h3>
+                 <p className="text-gray-400 text-sm">您的绘本故事已转化为电影时刻</p>
+               </div>
+               <button onClick={() => setVideoUrl(null)} className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all">
+                 <i className="fas fa-times text-xl"></i>
+               </button>
+             </div>
+             <div className="aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+               <video src={videoUrl} controls autoPlay className="w-full h-full" />
+             </div>
+           </div>
         </div>
       )}
 

@@ -10,6 +10,7 @@ import BookLibrary from './components/BookLibrary';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'studio' | 'library'>('studio');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [project, setProject] = useState<BookProject>({
     id: Math.random().toString(36).substr(2, 9),
     title: '',
@@ -23,6 +24,30 @@ const App: React.FC = () => {
   });
 
   const [history, setHistory] = useState<BookProject[]>([]);
+
+  // Check if API Key is selected (Mandatory for Veo and Gemini 3 Pro models)
+  useEffect(() => {
+    const checkApiKey = async () => {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+        const has = await aistudio.hasSelectedApiKey();
+        setHasApiKey(has);
+      } else {
+        // Fallback for non-AI Studio environments
+        setHasApiKey(true);
+      }
+    };
+    checkApiKey();
+  }, []);
+
+  const handleSelectKey = async () => {
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
+      await aistudio.openSelectKey();
+      // Assume the key selection was successful to mitigate race conditions
+      setHasApiKey(true);
+    }
+  };
 
   // 监听 PWA 安装事件
   useEffect(() => {
@@ -109,6 +134,36 @@ const App: React.FC = () => {
       localStorage.setItem('dreamweaver_history', JSON.stringify(newHistory));
     } catch (e) {}
   };
+
+  if (hasApiKey === false) {
+    return (
+      <div className="min-h-screen bg-[#fdf6f0] flex items-center justify-center p-6">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl max-w-md text-center space-y-6 border border-orange-100 animate-in zoom-in-95">
+           <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+             <i className="fas fa-key"></i>
+           </div>
+           <h2 className="text-3xl font-bold text-gray-800 font-header">欢迎来到 DreamWeaver</h2>
+           <p className="text-gray-500 leading-relaxed">
+             生成绘本预告片和高质量图像需要使用您自己的 API 密钥。请确保您选择了一个已开启结算的项目。
+           </p>
+           <a 
+             href="https://ai.google.dev/gemini-api/docs/billing" 
+             target="_blank" 
+             rel="noreferrer" 
+             className="text-orange-500 text-sm font-bold hover:underline block"
+           >
+             了解更多关于结算和 API 配置的信息
+           </a>
+           <button 
+             onClick={handleSelectKey}
+             className="w-full py-4 bg-orange-500 text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-orange-600 hover:-translate-y-1 transition-all"
+           >
+             立即选择 API Key
+           </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderStep = () => {
     if (currentView === 'library') {
