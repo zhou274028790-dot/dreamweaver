@@ -4,8 +4,16 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key 缺失。请在 Vercel 环境变量中配置 API_KEY。");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 export const generateStoryScript = async (idea: string, template: StoryTemplate): Promise<{ title: string; pages: StoryPage[] }> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -41,7 +49,7 @@ export const generateStoryScript = async (idea: string, template: StoryTemplate)
     });
 
     const text = response.text;
-    if (!text) throw new Error("AI 响应内容为空，请稍后重试。");
+    if (!text) throw new Error("AI 响应内容为空。");
     
     const data = JSON.parse(text.trim());
     return {
@@ -53,13 +61,13 @@ export const generateStoryScript = async (idea: string, template: StoryTemplate)
       }))
     };
   } catch (error) {
-    console.error("Story Generation Error:", error);
+    console.error("Story Generation Detailed Error:", error);
     throw error;
   }
 };
 
 export const generateStoryFromImage = async (base64Image: string, mimeType: string, template: StoryTemplate): Promise<{ title: string; pages: StoryPage[]; extractedIdea: string }> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -114,7 +122,7 @@ export const generateStoryFromImage = async (base64Image: string, mimeType: stri
 };
 
 export const generateNextPageSuggestion = async (context: string, currentStory: string): Promise<Partial<StoryPage>> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `基于目前的故事背景: "${context}" 和已有的故事情节: "${currentStory}"，请构思绘本的下一个精彩页面内容。返回 JSON 包含 text (中文) 和 visualPrompt (英文)。`,
@@ -134,7 +142,7 @@ export const generateNextPageSuggestion = async (context: string, currentStory: 
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, referenceImageBase64?: string): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const promptText = `A single character concept: ${description}. White background. Style: ${style}. High consistency.`;
   const contents: any = { parts: [{ text: promptText }] };
   if (referenceImageBase64) {
@@ -155,7 +163,7 @@ export const generateCharacterOptions = async (description: string, style: Visua
 };
 
 export const generateSceneImage = async (pageText: string, visualPrompt: string, characterImageBase64: string, style: VisualStyle): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: {
@@ -175,7 +183,7 @@ export const generateSceneImage = async (pageText: string, visualPrompt: string,
 };
 
 export const generateStoryVideo = async (title: string, summary: string, onProgress: (msg: string) => void): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   onProgress("正在初始化电影引擎...");
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
