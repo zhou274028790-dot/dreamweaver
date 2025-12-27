@@ -1,5 +1,5 @@
 {
-  "name": "Copy of DreamWeaver: AI Picture Book Studio",
+  "name": "DreamWeaver: AI Picture Book Studio",
   "description": "An AI-powered workflow for creating consistent, high-quality children's picture books from a single spark of inspiration.",
   "requestFramePermissions": [
     "microphone"
