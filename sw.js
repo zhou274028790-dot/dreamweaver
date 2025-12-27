@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'dreamweaver-v2';
+const CACHE_NAME = 'dreamweaver-v3';
 const ASSETS = [
   '/',
   '/index.html',

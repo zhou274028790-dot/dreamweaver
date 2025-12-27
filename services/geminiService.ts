@@ -4,16 +4,19 @@ import { StoryTemplate, StoryPage, VisualStyle } from "../types";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const getAIClient = () => {
+/**
+ * 每次调用时实例化，确保能够获取到最新的环境变量中的 API Key。
+ */
+const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API Key 缺失。请在 Vercel 环境变量中配置 API_KEY。");
+    throw new Error("Missing API_KEY. Please check your environment variables.");
   }
   return new GoogleGenAI({ apiKey });
 };
 
 export const generateStoryScript = async (idea: string, template: StoryTemplate): Promise<{ title: string; pages: StoryPage[] }> => {
-  const ai = getAIClient();
+  const ai = getAI();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -49,9 +52,12 @@ export const generateStoryScript = async (idea: string, template: StoryTemplate)
     });
 
     const text = response.text;
-    if (!text) throw new Error("AI 响应内容为空。");
+    if (!text) throw new Error("AI returned an empty response.");
     
-    const data = JSON.parse(text.trim());
+    // 移除可能的 Markdown 标记
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(cleanJson);
+    
     return {
       title: data.title || "未命名故事",
       pages: (data.pages || []).map((p: any, idx: number) => ({
@@ -60,14 +66,14 @@ export const generateStoryScript = async (idea: string, template: StoryTemplate)
         pageNumber: idx + 1
       }))
     };
-  } catch (error) {
-    console.error("Story Generation Detailed Error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Story Generation Error:", error);
+    throw new Error(error.message || "Failed to generate story script.");
   }
 };
 
 export const generateStoryFromImage = async (base64Image: string, mimeType: string, template: StoryTemplate): Promise<{ title: string; pages: StoryPage[]; extractedIdea: string }> => {
-  const ai = getAIClient();
+  const ai = getAI();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -103,9 +109,11 @@ export const generateStoryFromImage = async (base64Image: string, mimeType: stri
     });
 
     const text = response.text;
-    if (!text) throw new Error("AI 无法从图片提取创意。");
+    if (!text) throw new Error("AI failed to extract idea from image.");
     
-    const data = JSON.parse(text.trim());
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(cleanJson);
+
     return {
       title: data.title || "图片里的奇幻故事",
       extractedIdea: data.extractedIdea || "基于图片的灵感",
@@ -115,14 +123,14 @@ export const generateStoryFromImage = async (base64Image: string, mimeType: stri
         pageNumber: idx + 1
       }))
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Image to Story Error:", error);
-    throw error;
+    throw new Error(error.message || "Failed to analyze image.");
   }
 };
 
 export const generateNextPageSuggestion = async (context: string, currentStory: string): Promise<Partial<StoryPage>> => {
-  const ai = getAIClient();
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `基于目前的故事背景: "${context}" 和已有的故事情节: "${currentStory}"，请构思绘本的下一个精彩页面内容。返回 JSON 包含 text (中文) 和 visualPrompt (英文)。`,
@@ -138,12 +146,13 @@ export const generateNextPageSuggestion = async (context: string, currentStory: 
       }
     }
   });
-  return JSON.parse(response.text?.trim() || '{}');
+  const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(cleanJson || '{}');
 };
 
 export const generateCharacterOptions = async (description: string, style: VisualStyle, referenceImageBase64?: string): Promise<string[]> => {
-  const ai = getAIClient();
-  const promptText = `A single character concept: ${description}. White background. Style: ${style}. High consistency.`;
+  const ai = getAI();
+  const promptText = `A single character concept: ${description}. White background. Style: ${style}. High consistency. No text.`;
   const contents: any = { parts: [{ text: promptText }] };
   if (referenceImageBase64) {
     contents.parts.unshift({ inlineData: { data: referenceImageBase64.split(',')[1], mimeType: 'image/png' } });
@@ -163,13 +172,13 @@ export const generateCharacterOptions = async (description: string, style: Visua
 };
 
 export const generateSceneImage = async (pageText: string, visualPrompt: string, characterImageBase64: string, style: VisualStyle): Promise<string> => {
-  const ai = getAIClient();
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: {
       parts: [
         { inlineData: { data: characterImageBase64.split(',')[1], mimeType: 'image/png' } },
-        { text: `Illustration for: "${visualPrompt}". Main character attached for reference. Style: ${style}. 4K high quality.` }
+        { text: `Illustration for a children's book. Scene: "${visualPrompt}". The character attached must be the main hero. Style: ${style}. High quality, cinematic lighting, 4K.` }
       ]
     },
     config: { imageConfig: { aspectRatio: "4:3" } }
@@ -179,15 +188,15 @@ export const generateSceneImage = async (pageText: string, visualPrompt: string,
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; 
     }
   }
-  throw new Error("场景图生成失败。");
+  throw new Error("Failed to generate scene image.");
 };
 
 export const generateStoryVideo = async (title: string, summary: string, onProgress: (msg: string) => void): Promise<string> => {
-  const ai = getAIClient();
+  const ai = getAI();
   onProgress("正在初始化电影引擎...");
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
-    prompt: `Cinematic story movie trailer for "${title}". ${summary}. Animated style.`,
+    prompt: `Cinematic story movie trailer for "${title}". ${summary}. Animated style, high quality narration vibe.`,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
   });
   while (!operation.done) {

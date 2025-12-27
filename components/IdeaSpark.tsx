@@ -52,9 +52,9 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext }) => {
           currentStep: 'character'
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Failed to spark the story. Please try again.");
+      setError(err.message || "Failed to spark the story. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -160,7 +160,12 @@ const IdeaSpark: React.FC<Props> = ({ project, onNext }) => {
         </div>
       </div>
 
-      {error && <div className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-center">{error}</div>}
+      {error && (
+        <div className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 text-center animate-bounce">
+          <i className="fas fa-exclamation-triangle mr-2"></i>
+          {error}
+        </div>
+      )}
 
       <div className="flex justify-center pt-6">
         <button
